@@ -1,0 +1,81 @@
+module fifo_tb();
+	reg  wr_en,rd_en,rst,clk,sft_rst,lfd_state;
+	reg [7:0]d_in;
+	wire [7:0] d_out;
+	wire empty,full;
+	integer k;
+	
+ fifo dut(.clk(clk),.rst(rst),.sft_rst(sft_rst),.lfd_state(lfd_state),.d_in(d_in),.d_out(d_out),.wr_en(wr_en),.rd_en(rd_en),.empty(empty),.full(full));
+	
+	task initialise;
+	begin
+		rst=1'b1;
+		wr_en=1'b0;
+		rd_en=1'b0;
+		d_in=8'b0;
+		sft_rst=1'b0;
+		lfd_state=1'b0;
+	end
+	endtask
+	
+	initial 
+	begin
+		clk=1'b1;
+		forever #5 clk=~clk;
+	end
+	
+	task reset;
+	begin
+		@(negedge clk)
+			rst=1'b0;
+		@(negedge clk)
+			rst=1'b1;
+	end
+	endtask
+	
+	task write;
+	reg [7:0] payload_data,parity,header;
+	reg[5:0] payload_len;
+	reg [1:0] addr;
+	begin
+		@(negedge clk)
+			lfd_state=1'b1;
+			payload_len=6'd14;
+			addr=2'b01;
+		@(negedge clk)
+			header={payload_len,addr}; 
+			d_in=header;
+			wr_en=1;
+			lfd_state=1'b0;
+			
+		for(k=0;k<payload_len;k=k+1)
+			begin
+				@(negedge clk)
+					lfd_state=0;
+					payload_data={$random}%128;
+					d_in=payload_data;
+			end
+		@(negedge clk)
+			parity = {$random}%128;
+			d_in=parity;
+	end
+	endtask
+	
+	task read;
+	begin
+		@(negedge clk)
+			sft_rst=0;
+			rd_en=1;
+			wr_en=0;
+			end
+	endtask
+	
+	initial 
+	begin
+		initialise;
+		reset;
+		write;
+		read;
+		#200 $finish;
+	end
+endmodule 
